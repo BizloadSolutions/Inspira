@@ -8,7 +8,7 @@ namespace Inspira.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-//[Authorize(Policy = "SsnScope")]
+[Authorize(Policy = "SsnScope")]
 public class SsnCheckController : ControllerBase
 {
     private readonly ISsnCheckService _ssnCheckService;
@@ -33,6 +33,10 @@ public class SsnCheckController : ControllerBase
     {
         if (request is null || submissionId is null)
             return BadRequest("Request is missing required parameters.");
+        
+        // Validate Sanitisation for SSN
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
 
         if (string.IsNullOrWhiteSpace(request.SSN))
             return BadRequest(new { error = "SSN is required." });

@@ -59,4 +59,8 @@ dotnet test
 
 ---
 
-For more details, see the source code and comments in each project.
+## API Authentication
+
+Regarding the API authentication, I'm using auth0 as identity provider.
+If you are running the solution locally, you should disable authentication
+in the API project for testing purposes.
