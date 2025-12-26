@@ -4,5 +4,5 @@ namespace Inspira.Application.Services;
 
 public interface ISsnCheckService
 {
-    Task<string> SsnCheckAsync(int? submissionId, string ssn, string role);
+    Task<SsnCheckServiceResult> SsnCheckAsync(int? submissionId, string ssn, string role);
 }

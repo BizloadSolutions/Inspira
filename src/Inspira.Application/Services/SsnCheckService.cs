@@ -1,10 +1,11 @@
-using System;
-using System.Threading.Tasks;
+using Amazon.Runtime.Internal.Util;
+using Inspira.Application.Services;
+using Inspira.Domain.Entities;
 using Inspira.Domain.Repositories;
 using Microsoft.Extensions.Logging;
-using System.Text.Json;
-using Inspira.Domain.Entities;
-using Inspira.Application.Services;
+using System;
+using System.Threading.Tasks;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Inspira.Application.Services;
 
@@ -26,7 +27,7 @@ public class SsnCheckService : ISsnCheckService
         _logger = logger;
     }
 
-    public async Task<string> SsnCheckAsync(int? submissionId, string ssn, string role)
+    public async Task<SsnCheckServiceResult> SsnCheckAsync(int? submissionId, string ssn, string role)
     {
         try
         {
@@ -38,55 +39,60 @@ public class SsnCheckService : ISsnCheckService
             }
 
             // Basic redaction check: consider redacted if length==4 or contains '•'
-            var redactedTaxId = !string.IsNullOrEmpty(ssn) && (ssn.Length == 4 || ssn.Contains("•"));
+            var redactedTaxId = ssn.Length == 4 || ssn.Contains("•");
+
+            SubmissionProperty? submissionProperty = null;
+
+            submissionProperty = await _submissionPropertyRepository.GetByIdAsync(submission.SubmissionPropertyId);
+
+            if (submissionProperty == null)
+            {
+                throw new ArgumentException($"SubmissionProperty with ID {submission.SubmissionPropertyId} not found.");
+            }
 
             if (redactedTaxId)
             {
-                var submissionProperty = await _submissionPropertyRepository.GetByIdAsync(submission.SubmissionPropertyId);
-
-                if (submissionProperty == null)
-                {
-                    throw new ArgumentException($"SubmissionProperty with ID {submission.SubmissionPropertyId} not found.");
-                }
-
                 ssn = submissionProperty.OwnerTaxId;
             }
 
-            var roleInt = string.Equals(role, "Owner", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+            var roleInt = role == "Owner" ? 1 : 0;
 
             // Call SOAP service
             var contactIdVal = await _mtcSoapClient.SsnInternalCheckAsync(ssn, roleInt);
 
-            if (string.Equals(role, "Owner", StringComparison.OrdinalIgnoreCase))
+            if (role == "Owner")
             {
-                // Persist owner contact id
-                var submissionProperty = await _submissionPropertyRepository.GetByIdAsync(submission.SubmissionPropertyId);
-                if (submissionProperty != null)
-                {
-                    submissionProperty.OwnerContactId = contactIdVal.ToString();
-                    await _submissionPropertyRepository.UpdateAsync(submissionProperty);
-                }
+                submissionProperty.OwnerContactId = contactIdVal.ToString();
+                await _submissionPropertyRepository.UpdateAsync(submissionProperty);
             }
 
-            var result = new
-            {
-                result = contactIdVal != 0,
-                contactId = contactIdVal
-            };
-
-            return JsonSerializer.Serialize(result);
+            return BuildResult(contactIdVal, string.Empty);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "SsnCheck failed");
+            var errorMsg = $"{nameof(SsnCheckService)} failed to run correctly. ";
+            var multipleActiveMessage = "Multiple active contact master records found";
 
-            var result = new
+            if (ex.Message != null && ex.Message.Contains(multipleActiveMessage, StringComparison.OrdinalIgnoreCase))
             {
-                result = "error",
-                contactId = 0
-            };
+                errorMsg += multipleActiveMessage;
+            }
 
-            return JsonSerializer.Serialize(result);
+            errorMsg += "\n" + ex.ToString();
+
+            _logger.LogWarning(errorMsg);
+
+            return BuildResult(0, "error");
         }
+    }
+
+    private SsnCheckServiceResult BuildResult(int contactIdVal, string error)
+    {
+        string resultValue = !string.IsNullOrEmpty(error) ? error : (contactIdVal != 0).ToString().ToLower();
+        return new SsnCheckServiceResult
+        {
+            Result = resultValue,
+            ContactId = contactIdVal
+        };
     }
 }
