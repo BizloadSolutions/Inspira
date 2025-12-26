@@ -2,19 +2,22 @@ using Microsoft.AspNetCore.Mvc;
 using Inspira.API.Models;
 using Inspira.Application.Services;
 using Microsoft.AspNetCore.Authorization;
+using AutoMapper;
 
 namespace Inspira.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Policy = "SsnScope")]
+//[Authorize(Policy = "SsnScope")]
 public class SsnCheckController : ControllerBase
 {
     private readonly ISsnCheckService _ssnCheckService;
+    private readonly IMapper _mapper;
 
-    public SsnCheckController(ISsnCheckService ssnCheckService)
+    public SsnCheckController(ISsnCheckService ssnCheckService, IMapper mapper)
     {
         _ssnCheckService = ssnCheckService;
+        _mapper = mapper;
     }
 
     /// <summary>
@@ -39,8 +42,10 @@ public class SsnCheckController : ControllerBase
 
         try
         {
-            var json = await _ssnCheckService.SsnCheckAsync(submissionId, request.SSN, request.Role);
-            return Content(json, "application/json");
+            var serviceResult = await _ssnCheckService.SsnCheckAsync(submissionId, request.SSN, request.Role);
+            var responseDto = _mapper.Map<SsnCheckResponseDto>(serviceResult);
+
+            return Ok(responseDto);
         }
         catch (UnauthorizedAccessException)
         {

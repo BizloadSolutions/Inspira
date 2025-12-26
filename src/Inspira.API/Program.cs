@@ -2,6 +2,8 @@ using Inspira.Infrastructure;
 using Inspira.Application.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using AutoMapper;
+using Inspira.API.Mapping;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +17,9 @@ builder.Services.AddMongoRepositories(builder.Configuration);
 
 // Register application services
 builder.Services.AddScoped<ISsnCheckService, SsnCheckService>();
+
+// Register AutoMapper
+builder.Services.AddAutoMapper(typeof(SsnCheckMappingProfile));
 
 // Add controllers
 builder.Services.AddControllers();
