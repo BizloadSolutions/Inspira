@@ -3,12 +3,15 @@ using Inspira.API.Models;
 using Inspira.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using AutoMapper;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Inspira.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Policy = "SsnScope")]
+//[Authorize(Policy = "SsnScope")]
+//[Authorize(Roles = "Manager,Admin")]
+[EnableRateLimiting("fixed")]
 public class SsnCheckController : ControllerBase
 {
     private readonly ISsnCheckService _ssnCheckService;
